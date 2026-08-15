@@ -1,0 +1,96 @@
+#!/bin/sh
+# dwl session launcher (v2).
+#
+# Entry point for the "dwl" wayland-sessions .desktop entry (or run directly).
+# Unlike v1's startdwl/autostart.sh split, this is self-contained: it doesn't
+# assume it lives inside the dotfiles repo, only that its own config lives at
+# a fixed, stable location (~/.config/dwl/), symlinked there from
+# dotfiles-v2/configs/dwl/ same as any other app config in this repo.
+#
+# Deferred, not yet wired up (packaging not done yet -- see SETUP-LOG.md):
+#   - screen locking: waylock isn't packaged in v2 yet, so there is
+#     deliberately no idle->lock timer here (v1 had one via swayidle).
+#   - idle-inhibit-while-media-playing: v1's wl-idle-inhibit (a separate Go
+#     tool) was never part of the v2 package set.
+
+SELF="$(readlink -f "$0")"
+
+# Source machine-local env vars (not committed to the repo).
+[ -f "$HOME/.config/dwl/env" ] && . "$HOME/.config/dwl/env"
+
+if [ "$1" = "--autostart" ]; then
+	set --
+	# --- autostart body (runs once the compositor is up, via dwl -s) ---
+
+	# Track this process group so a re-exec/restart cleanly kills the
+	# previous round of bar/helper processes instead of leaking them.
+	pgid_file="${XDG_RUNTIME_DIR:-/tmp}/dwl-bars.pgid"
+	if [ -f "$pgid_file" ]; then
+		old_pgid=$(cat "$pgid_file")
+		case "$old_pgid" in
+			*[!0-9]*|"") ;;
+			*) [ "$old_pgid" -gt 1 ] && kill -- -"$old_pgid" 2>/dev/null ;;
+		esac
+	fi
+	ps -o pgid= -p $$ | tr -d ' ' > "$pgid_file"
+
+	# NOTE: no manual Xwayland setup here. dwl (built with USE=X) creates and
+	# manages its own Xwayland instance internally (dwl.c calls
+	# wlr_xwayland_create() lazily on first X11 client) -- it handles its own
+	# DISPLAY/XAUTHORITY. A manual `Xwayland :1 ...` here (v1 had one, from
+	# before the fork grew this built-in support) just fights it for the
+	# socket ("address already in use").
+
+	# Still needed: export WAYLAND_DISPLAY for D-Bus-activated services (e.g.
+	# xdg-desktop-portal-wlr's ConditionEnvironment=WAYLAND_DISPLAY, for
+	# screen sharing). XDG_CURRENT_DESKTOP=sway is a compatibility shim --
+	# dwl isn't a portal-recognized desktop name, sway's config is close
+	# enough for portal matching purposes.
+	dbus-update-activation-environment --systemd \
+		WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_CURRENT_DESKTOP=sway
+
+	until [ -S "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY:-wayland-0}" ]; do
+		sleep 0.05
+	done
+
+	# Display power management (wlopm is packaged; the lock-on-idle timer
+	# that used to sit alongside this one is deferred until waylock is).
+	swayidle timeout 300 'wlopm --off \*' resume 'wlopm --on \*' &
+
+	playerctld &
+
+	# --- bar + notification daemon ---
+	my_user=$(id -un)
+
+	pkill -u "$my_user" -x someblocks 2>/dev/null
+	pkill -u "$my_user" -x somebar 2>/dev/null
+	while pgrep -u "$my_user" -x "someblocks|somebar" >/dev/null 2>&1; do
+		sleep 1
+	done
+
+	swaybg -i "$HOME/.config/dwl/wallpaper.png" -m fill -c 1B2E4D &
+
+	[ -n "$XDG_RUNTIME_DIR" ] && rm -f "$XDG_RUNTIME_DIR"/somebar-*
+
+	swaync &
+	somebar &
+	someblocks &
+
+	pactl subscribe 2>/dev/null | grep --line-buffered "sink" | \
+		while read -r _; do pkill -RTMIN+2 someblocks 2>/dev/null; done &
+
+	playerctl -F status 2>/dev/null | \
+		while read -r _; do pkill -RTMIN+3 someblocks 2>/dev/null; done &
+
+	swaync-client --subscribe 2>/dev/null | \
+		while read -r _; do pkill -RTMIN+4 someblocks 2>/dev/null; done &
+
+	exit 0
+fi
+
+# No systemd/elogind session bus autolaunch on this OpenRC system -- start a
+# private D-Bus session bus (dbus-run-session) wrapping the whole compositor
+# process tree, so dwl and everything it spawns (swaync,
+# dbus-update-activation-environment for portal activation, etc.) inherit a
+# working DBUS_SESSION_BUS_ADDRESS.
+exec dbus-run-session -- dwl -s "'$SELF' --autostart"

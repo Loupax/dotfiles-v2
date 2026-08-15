@@ -1,0 +1,36 @@
+#!/bin/bash
+
+output_dir="$HOME/Videos/Screencaps"
+mkdir -p "$output_dir"
+
+chosen_option=$(tofi <<EOF
+Record Region (MKV)
+Record Fullscreen (MKV)
+EOF
+)
+
+notify_with_stop() {
+    local pid="$1"
+    local action
+    action=$(notify-send -A "stop=Stop Recording" -t 0 "Recording in progress" "Click to stop")
+    [ "$action" = "stop" ] && kill -SIGTERM "$pid" 2>/dev/null
+}
+
+case "$chosen_option" in
+    "Record Region (MKV)")
+        geometry=$(slurp)
+        [ -z "$geometry" ] && exit 0
+        ~/bin/wf-recorder -g "$geometry" -a -c libvpx-vp9 -f "$output_dir/$(date +'%Y-%m-%d_%H-%M-%S').mkv" &
+        wf_pid=$!
+        notify_with_stop "$wf_pid" &
+        disown "$wf_pid" $!
+        ;;
+
+    "Record Fullscreen (MKV)")
+        ~/bin/wf-recorder -a -c libvpx-vp9 -f "$output_dir/$(date +'%Y-%m-%d_%H-%M-%S')-fullscreen.mkv" &
+        wf_pid=$!
+        notify_with_stop "$wf_pid" &
+        disown "$wf_pid" $!
+        ;;
+esac
+exit 0

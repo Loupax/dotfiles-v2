@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# 1. Gather all choices relative to $HOME
+# We change directory to $HOME temporarily so `find` outputs paths like "src/project"
+# instead of just "project" or absolute paths.
+cd "$HOME" || exit
+
+# Get directories (you can add more paths here later, like 'work' or '.config')
+dirs=$(find src -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+dirs="$dirs"$'\n'
+dirs="${dirs}Downloads"$'\n'
+dirs="${dirs}Documents"$'\n'
+
+# Get running tmux sessions
+sessions=$(tmux ls -F "#{session_name}" 2>/dev/null)
+
+# Combine, sort alphabetically, deduplicate, and remove empty lines
+choices=$(printf "%s\n%s" "$dirs" "$sessions" | sort -u | grep -v '^$')
+
+# 2. Detect environment and prompt the user
+if [ "$1" = "--gui" ]; then
+    selected=$(echo "$choices" | tofi --prompt-text="Project/Session:")
+else
+    selected=$(echo "$choices" | fzf --prompt="Project/Session: ")
+fi
+
+# Exit if you press Escape
+[ -z "$selected" ] && exit 0
+
+# 3. Clean up the name for tmux
+# Tmux allows slashes, but throws errors if session names contain dots or colons.
+session_name=$(echo "$selected" | tr '.:' '__')
+
+# 4. Create the session if it doesn't already exist
+if ! tmux has-session -t "=$session_name" 2>/dev/null; then
+    # Check if the selection maps to a real directory inside $HOME
+    if [ -d "$HOME/$selected" ]; then
+        tmux new-session -d -s "$session_name" -c "$HOME/$selected"
+    else
+        # Fallback for custom names typed manually
+        tmux new-session -d -s "$session_name" -c "$HOME"
+    fi
+fi
+
+# 5. Attach based on context
+if [ "$1" = "--gui" ]; then
+    foot -e tmux attach-session -t "=$session_name"
+elif [ -n "$TMUX" ]; then
+    tmux switch-client -t "=$session_name"
+else
+    tmux attach-session -t "=$session_name"
+fi

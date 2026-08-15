@@ -1,0 +1,21 @@
+#!/bin/bash
+# A tofi wrapper that sorts commands by frequency (tofi-native replacement
+# for the old dmenu_run_history, since dwl's launcher keybind now spawns
+# this instead of dmenu).
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/tofi_history"
+mkdir -p "$(dirname "$CACHE")"
+touch "$CACHE"
+
+cmd=$(
+	{
+		# 1. Tally history, sort by frequency (highest first)
+		sort "$CACHE" 2>/dev/null | uniq -c | sort -rn | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+//'
+		# 2. Append everything else on $PATH (tofi ships no dmenu_path equivalent)
+		compgen -c | sort -u
+	} | awk '!seen[$0]++' | tofi "$@"
+)
+
+if [ -n "$cmd" ]; then
+	echo "$cmd" >> "$CACHE"
+	eval "exec $cmd"
+fi
