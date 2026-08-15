@@ -536,11 +536,8 @@ Fixed:
   `PulseAudio (on PipeWire 1.6.7)` confirming pipewire-pulse owns the compat
   socket, and audio audibly works (tested via YouTube in a browser).
 
-Left pending: `wpctl`/pipewire logs show RTKit realtime-priority warnings
-(`RTKit error: org.freedesktop.DBus.Error.ServiceUnknown`, falls back to
-`MaxRealtimePriority: 1`) — no `sys-auth/rtkit` D-Bus service installed. The
-package already ships `/etc/security/limits.d/25-pw-rlimits.conf` granting
-`rtprio`/`nice`/`memlock` to the `@pipewire` group as the rtkit-free
-alternative, but `loupax` isn't a member of that group yet. Asked you to run
-`usermod -aG pipewire loupax` as root; takes effect on next login/new
-session, not retroactively — not yet confirmed fixed.
+~~Left pending: `wpctl`/pipewire logs show RTKit realtime-priority
+warnings~~ — `usermod -aG pipewire loupax` applied and confirmed active after
+re-login. Bluetooth (USE flag + `bluez` installed back when the pipewire USE
+flags were fixed) still untested — deferred until there's an actual BT
+device around to pair.
