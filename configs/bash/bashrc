@@ -1,0 +1,336 @@
+# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+# for examples
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# don't put duplicate lines or lines starting with space in the history.
+# See bash(1) for more options
+HISTCONTROL=ignoreboth
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# for setting history length see HISTSIZE and HISTFILESIZE in bash(1)
+HISTSIZE=1000
+HISTFILESIZE=2000
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+# If set, the pattern "**" used in a pathname expansion context will
+# match all files and zero or more directories and subdirectories.
+#shopt -s globstar
+
+# make less more friendly for non-text input files, see lesspipe(1)
+# [ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+esac
+
+# uncomment for a colored prompt, if the terminal has the capability; turned
+# off by default to not distract the user: the focus in a terminal window
+# should be on the output of commands, not on the prompt
+#force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+	# a case would tend to support setf rather than setaf.)
+	color_prompt=yes
+    else
+	color_prompt=
+    fi
+fi
+
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+fi
+unset color_prompt force_color_prompt
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*|st*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+
+# enable color support of ls and also add handy aliases
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
+
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+# colored GCC warnings and errors
+#export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
+
+# some more ls aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias surf='/usr/local/bin/surf-open'
+alias ts='tmux-sessionizer'
+
+# Add an "alert" alias for long running commands.  Use like so:
+#   sleep 10; alert
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+# -------------------------------------------------------
+# Custom prompt
+# -------------------------------------------------------
+
+# Prompt color variables
+C_RED='\[\e[1;91m\]'
+C_GREEN='\[\e[0;32m\]'
+C_BLUE='\[\e[1;94m\]'
+C_RESET='\[\e[0m\]'
+
+__prompt_git_info ()
+{
+    if $(git rev-parse --is-inside-git-dir 2> /dev/null); then
+        echo "";
+        return;
+    fi;
+    if ! ( git rev-parse --is-inside-work-tree > /dev/null 2>&1 ); then
+        echo "";
+        return;
+    fi;
+    local branch_name_or_hash;
+    local final_git_string="";
+    branch_name_or_hash=$(git symbolic-ref --short HEAD 2> /dev/null);
+    if [[ -z "$branch_name_or_hash" ]]; then
+        branch_name_or_hash=$(git rev-parse --short HEAD 2> /dev/null);
+        if [[ -z "$branch_name_or_hash" ]]; then
+            echo "";
+            return;
+        fi;
+    fi;
+    local dirty=false;
+    local state="";
+    if git status --porcelain 2> /dev/null | \grep -q '^??'; then
+        dirty=true;
+        state="+";
+    else
+        if ! git diff --quiet HEAD 2> /dev/null || ! git diff --quiet 2> /dev/null; then
+            dirty=true;
+            state="+";
+        fi;
+    fi;
+    local git_content="(${branch_name_or_hash})${state}";
+    if [[ "$dirty" == true ]]; then
+        final_git_string="${C_RED}${git_content}${C_RESET}";
+    else
+        final_git_string="${C_BLUE}${git_content}${C_RESET}";
+    fi;
+    echo "${final_git_string}"
+}
+
+__set_custom_prompt ()
+{
+    local EXIT="$?";
+    local current_pwd_display;
+    local current_pwd=$PWD;
+    local home_dir=$HOME;
+    local err="${C_RED}\$${C_RESET}";
+    if [[ "$EXIT" -eq "0" ]]; then
+        err="${C_GREEN}\$${C_RESET}";
+    fi;
+    if [[ "$current_pwd" == "$home_dir" ]]; then
+        current_pwd_display="~";
+    else
+        if [[ "$current_pwd" == "$home_dir"/* ]]; then
+            current_pwd_display="~${current_pwd#$home_dir}";
+        else
+            current_pwd_display="$current_pwd";
+        fi;
+    fi;
+    local git_info;
+    git_info=$(__prompt_git_info);
+    if [[ ! -z ${git_info} ]]; then
+        git_root=$(git rev-parse --show-toplevel 2> /dev/null);
+        if [[ "$git_root" == "$PWD" ]]; then
+            PS1="${git_info} ./${PWD##*/} ${err} ";
+        else
+            PS1="${git_info} ${git_root##*/}${PWD#$git_root} ${err} ";
+        fi;
+        return;
+    fi;
+    PS1="${current_pwd_display} ${err} "
+}
+
+PROMPT_COMMAND=__set_custom_prompt
+
+# -------------------------------------------------------
+# Custom functions
+# -------------------------------------------------------
+
+nv-fzf ()
+{
+    local selection;
+    if [ -p /dev/stdin ]; then
+        selection=$(cat | fzf --reverse --height 40%);
+    else
+        selection=$(fzf --reverse --height 40%);
+    fi;
+    if [ -n "$selection" ]; then
+        local abs_path=$(realpath "$selection");
+        nvim "$abs_path";
+    fi
+}
+
+nvim ()
+{
+    local selection="$1";
+    if [ -n "$NVIM" ] && [ -n "$selection" ]; then
+        echo "nvim variable exists";
+        local abs_path=$(realpath "$selection");
+        command nvim --server "$NVIM" --remote-send "<C-\><C-n>:1wincmd w | e $abs_path<CR>:wincmd p<CR>i";
+        return;
+    fi;
+    local tmux_info=$(tmux display-message -p '#S_#I' 2> /dev/null | tr '/' '-');
+    local tmux_pipe="/tmp/nvim_${tmux_info}.pipe";
+    if [ -S "$tmux_pipe" ] && [ -n "$selection" ]; then
+        echo "nvim variable trying to open file";
+        local abs_path=$(realpath "$selection");
+        command nvim --server "$tmux_pipe" --remote "$abs_path";
+        tmux select-pane -t :.0;
+        return;
+    fi;
+    command nvim "$@"
+}
+
+# -------------------------------------------------------
+# Environment variables
+# -------------------------------------------------------
+
+export EDITOR="nvim"
+export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/keyring/ssh"
+
+# NOTE: Consider moving sensitive tokens to a separate file (e.g. ~/.secrets)
+# that is not version-controlled, and source it here instead.
+if [ -d "$HOME/.secrets" ]; then
+  for f in ~/.secrets/*; do source $f; done
+fi
+
+# -------------------------------------------------------
+# PATH
+# -------------------------------------------------------
+
+export PATH="$HOME/.local/bin:$HOME/bin:$HOME/.local/share/pnpm:/usr/local/go/bin:$HOME/.cargo/bin:$HOME/go/bin:$PATH"
+
+# -------------------------------------------------------
+# NVM (Node Version Manager)
+# -------------------------------------------------------
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# -------------------------------------------------------
+# Tool completions
+# -------------------------------------------------------
+
+# logcli completion
+_logcli_bash_autocomplete ()
+{
+    local cur prev opts base;
+    COMPREPLY=();
+    cur="${COMP_WORDS[COMP_CWORD]}";
+    opts=$(${COMP_WORDS[0]} --completion-bash "${COMP_WORDS[@]:1:$COMP_CWORD}");
+    COMPREPLY=($(compgen -W "${opts}" -- ${cur}));
+    return 0
+}
+complete -F _logcli_bash_autocomplete logcli
+
+# secret-sauce completion
+eval "$(sauce completion bash 2>/dev/null)"
+
+# opencode
+export PATH="$HOME/.opencode/bin:$PATH"
+
+# direnv
+command -v direnv &>/dev/null && eval "$(direnv hook bash)"
+
+# pyenv
+if command -v pyenv &>/dev/null; then
+  export PYENV_ROOT="$HOME/.pyenv"
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)"
+fi
+
+# Add to ~/.bashrc or ~/.zshrc
+
+# LLM Terminal Assistant
+llm_complete() {
+    local prompt="$1"
+    local os=$(uname -s)
+    local hostname=$(hostname)
+    local pwd=$(pwd)
+    local shell=$SHELL
+    
+    curl -s https://api.anthropic.com/v1/messages \
+        -H "x-api-key: $ANTHROPIC_API_KEY" \
+        -H "anthropic-version: 2023-06-01" \
+        -H "content-type: application/json" \
+        -d "{
+            \"model\": \"claude-haiku-4-5-20251001\",
+            \"max_tokens\": 500,
+            \"system\": \"You are a terminal assistant. Provide alternative shell commands to accomplish the task. Output ONLY plain commands with descriptions as comments—no markdown, no backticks, no code blocks. Format: command  # description. One per line. Use pipes, &&, semicolons for multi-step commands on one line. No numbering or explanations. User environment: OS=$os, hostname=$hostname, current_dir=$pwd, shell=$shell\",
+            \"messages\": [{\"role\": \"user\", \"content\": \"$prompt\"}]
+        }" \
+        | jq -r '.content[0].text'
+}
+
+bind_llm() {
+    read -e -p "LLM> " prompt
+    local selection=$(llm_complete "$prompt" | fzf --preview-window=right:50%:wrap --preview 'echo {}')
+    if [ -n "$selection" ]; then
+        echo "$selection"
+        eval "$selection"
+    fi
+}
+
+bind -x '"\C-l": bind_llm'
