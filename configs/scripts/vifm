@@ -1,0 +1,29 @@
+#!/bin/bash
+# vifm wrapper: run the real vifm directly if we're already inside a real
+# terminal emulator window (a pty, /dev/pts/N -- e.g. typed into an
+# already-open foot window). Otherwise, open a foot window and run vifm
+# inside that instead, since vifm is a TUI app and fails silently with no
+# terminal.
+#
+# Plain `[ -t 1 ]` is NOT enough here: dwl itself is launched from a raw TTY
+# login (its own controlling terminal is /dev/tty1, not a pty), and menucmd
+# (tofi_run_history, which `eval`s whatever gets typed) inherits that same
+# /dev/ttyN with no redirection -- so `[ -t 1 ]` is true even via Mod+d, just
+# pointing at an invisible background console instead of a visible window.
+# Checking specifically for a /dev/pts/* pty distinguishes "really inside a
+# terminal emulator" from "inherited dwl's own raw console".
+#
+# REAL_VIFM is hardcoded rather than looked up via `command -v vifm`: this
+# script lives earlier on $PATH than /usr/bin (that's the whole point --
+# it's meant to shadow the real binary), so a PATH-based lookup here would
+# just find itself again and recurse forever.
+REAL_VIFM=/usr/bin/vifm
+
+case "$(tty 2>/dev/null)" in
+	/dev/pts/*)
+		exec "$REAL_VIFM" "$@"
+		;;
+	*)
+		exec foot -a vifm -T vifm "$REAL_VIFM" "$@"
+		;;
+esac

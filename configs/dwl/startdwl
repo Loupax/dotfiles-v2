@@ -10,8 +10,11 @@
 # Deferred, not yet wired up (packaging not done yet -- see SETUP-LOG.md):
 #   - screen locking: waylock isn't packaged in v2 yet, so there is
 #     deliberately no idle->lock timer here (v1 had one via swayidle).
-#   - idle-inhibit-while-media-playing: v1's wl-idle-inhibit (a separate Go
-#     tool) was never part of the v2 package set.
+#
+# Deliberately not wired up at all: idle->screen-off/sleep. v1 had a
+# swayidle+wlopm timer here; it's been removed on purpose so this script
+# doesn't drive any automatic sleep/blank behavior -- that's left to
+# session/logind config outside dwl-space.
 
 SELF="$(readlink -f "$0")"
 
@@ -53,9 +56,8 @@ if [ "$1" = "--autostart" ]; then
 		sleep 0.05
 	done
 
-	# Display power management (wlopm is packaged; the lock-on-idle timer
-	# that used to sit alongside this one is deferred until waylock is).
-	swayidle timeout 300 'wlopm --off \*' resume 'wlopm --on \*' &
+	# No idle-driven display power management here on purpose: sleep/screen-off
+	# is handled outside dwl-space (session/logind level), not by this script.
 
 	playerctld &
 
