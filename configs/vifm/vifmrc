@@ -224,7 +224,6 @@ command! reload :write | restart full
 
 " Pdf
 filextype {*.pdf},<application/pdf> zathura %c %i, apvlv %c, xpdf %c
-fileviewer {*.pdf},<application/pdf> pdftotext -nopgbrk %c -
 
 " PostScript
 filextype {*.ps,*.eps,*.ps.gz},<application/postscript>
@@ -340,10 +339,14 @@ fileviewer {*.bmp,*.jpg,*.jpeg,*.png,*.gif,*.svg,*.webp,*.heic,*.heif,*.xpm},<im
 " PDF preview: rasterize page 1 to PNG (pdftoppm, from app-text/poppler,
 " needs USE=png -- the "utils" flag alone only guarantees plain PPM output)
 " and pipe it through the same sixel path as images above. `-singlefile`
-" plus `-` as the output name makes pdftoppm write to stdout instead of a
-" numbered file on disk.
+" with NO output-name argument at all is what makes pdftoppm write to
+" stdout in this poppler version -- passing "-" explicitly does NOT work,
+" it gets treated as a literal filename prefix and writes an empty/wrong
+" file instead (verified directly: `pdftoppm ... file.pdf -` produced an
+" empty file, while `pdftoppm ... file.pdf` with the prefix omitted
+" entirely produced a valid PNG on stdout).
 fileviewer {*.pdf},<application/pdf>
-         \ pdftoppm -f 1 -l 1 -png -singlefile %c:p - | chafa -f sixel -s %pwx%ph - %pd
+         \ pdftoppm -f 1 -l 1 -png -singlefile %c:p | chafa -f sixel -s %pwx%ph - %pd
 
 " OpenRaster
 filextype *.ora
