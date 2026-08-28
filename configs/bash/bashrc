@@ -126,7 +126,15 @@ fi
 C_RED='\[\e[1;91m\]'
 C_GREEN='\[\e[0;32m\]'
 C_BLUE='\[\e[1;94m\]'
+C_YELLOW='\[\e[1;33m\]'
 C_RESET='\[\e[0m\]'
+
+# Show hostname in the prompt when connected over SSH
+if [[ -n "$SSH_CONNECTION" || -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; then
+    PROMPT_HOSTNAME="${C_YELLOW}\h${C_RESET} "
+else
+    PROMPT_HOSTNAME=""
+fi
 
 __prompt_git_info ()
 {
@@ -192,13 +200,13 @@ __set_custom_prompt ()
     if [[ ! -z ${git_info} ]]; then
         git_root=$(git rev-parse --show-toplevel 2> /dev/null);
         if [[ "$git_root" == "$PWD" ]]; then
-            PS1="${git_info} ./${PWD##*/} ${err} ";
+            PS1="${PROMPT_HOSTNAME}${git_info} ./${PWD##*/} ${err} ";
         else
-            PS1="${git_info} ${git_root##*/}${PWD#$git_root} ${err} ";
+            PS1="${PROMPT_HOSTNAME}${git_info} ${git_root##*/}${PWD#$git_root} ${err} ";
         fi;
         return;
     fi;
-    PS1="${current_pwd_display} ${err} "
+    PS1="${PROMPT_HOSTNAME}${current_pwd_display} ${err} "
 }
 
 PROMPT_COMMAND=__set_custom_prompt
